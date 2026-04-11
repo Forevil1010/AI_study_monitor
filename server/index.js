@@ -6,6 +6,11 @@ const app = express()
 app.use(cors()) // 允许跨域
 app.use(express.json()) // 解析JSON格式请求体
 
+app.post('/api/register', (req, res) => {
+  const { username, password } = req.body
+  res.json({ code: 200, msg: '注册成功' })
+})
+
 // 1. 登录接口
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body

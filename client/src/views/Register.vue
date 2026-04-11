@@ -1,7 +1,7 @@
 <template>
-  <div class="login">
-    <div class="login-card">
-      <h2>AI自习室防分心助手</h2>
+  <div class="register">
+    <div class="register-card">
+      <h2>账号注册</h2>
       <el-form
         ref="formRef"
         :model="form"
@@ -19,13 +19,13 @@
           />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleLogin" block>
-            登录
+          <el-button type="primary" @click="handleRegister" block>
+            注册
           </el-button>
         </el-form-item>
         <el-form-item>
-          <el-button type="text" @click="$router.push('/register')">
-            没有账号？去注册
+          <el-button type="text" @click="$router.push('/login')">
+            已有账号？去登录
           </el-button>
         </el-form-item>
       </el-form>
@@ -37,10 +37,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { login } from '../api'
+import { register } from '../api'
 
 const router = useRouter()
 const formRef = ref(null)
+
 const form = ref({
   username: '',
   password: ''
@@ -51,30 +52,30 @@ const rules = {
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
 
-const handleLogin = async () => {
+const handleRegister = async () => {
   await formRef.value.validate()
-  await login(form.value)
-  ElMessage.success('登录成功')
-  router.push('/home')
+  await register(form.value)
+  ElMessage.success('注册成功')
+  router.push('/login')
 }
 </script>
 
 <style scoped>
-.login {
+.register {
   height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #f5f7fa;
 }
-.login-card {
+.register-card {
   width: 400px;
   padding: 30px;
   background: white;
   border-radius: 12px;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
 }
-.login-card h2 {
+.register-card h2 {
   text-align: center;
   margin-bottom: 24px;
 }
