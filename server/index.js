@@ -39,6 +39,17 @@ app.post('/api/session/end', (req, res) => {
   })
 })
 
+// 分心检测Mock接口（后续替换为真实MediaPipe逻辑）
+app.post('/api/detect', (req, res) => {
+  // 模拟随机返回分心/专注，后续替换为真实AI检测
+  const isDistracted = Math.random() < 0.3
+  res.json({
+    code: 200,
+    isDistracted,
+    reason: isDistracted ? "低头分心" : "正常专注"
+  })
+})
+
 // 启动服务
 const PORT = 3000
 app.listen(PORT, () => {

@@ -11,5 +11,7 @@ export const login = (data) => request.post('/login', data)
 export const startSession = () => request.post('/session/start')
 export const endSession = () => request.post('/session/end')
 export const register = (data) => request.post('/register', data)
+// 新增分心检测接口
+export const detectDistraction = (data) => request.post('/detect', data)
 
 export default request
