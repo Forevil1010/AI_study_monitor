@@ -44,12 +44,17 @@ const handleLogin = async () => {
   }
 
   try {
-    await login(form.value)
+    const res = await login(form.value)
+    
+    // 登录成功才存token + 跳转
+    localStorage.setItem('token', res.token)
     ElMessage.success('登录成功')
     router.push('/home')
+    
   } catch (e) {
-    ElMessage.success('登录成功')
-    router.push('/home')
+    // 登录失败：只提示错误，不跳转！
+    ElMessage.error(e.response?.data?.msg || '登录失败')
+    // 这里绝对不要写 router.push！
   }
 }
 </script>
