@@ -6,67 +6,52 @@ const StudySession = sequelize.define('StudySession', {
   id: {
     type: DataTypes.INTEGER.UNSIGNED,
     primaryKey: true,
-    autoIncrement: true,
-    comment: '会话ID'
+    autoIncrement: true
   },
   user_id: {
     type: DataTypes.INTEGER.UNSIGNED,
-    allowNull: false,
-    comment: '关联用户ID'
+    allowNull: false
   },
   session_name: {
     type: DataTypes.STRING(100),
-    defaultValue: '自习会话',
-    comment: '会话名称'
+    defaultValue: '自习会话'
   },
   start_time: {
     type: DataTypes.DATE,
-    allowNull: false,
-    comment: '开始时间'
+    allowNull: false
   },
   end_time: {
-    type: DataTypes.DATE,
-    comment: '结束时间'
+    type: DataTypes.DATE
   },
   duration: {
     type: DataTypes.INTEGER,
-    defaultValue: 0,
-    comment: '总时长(秒)'
+    defaultValue: 0
   },
   total_focus_time: {
     type: DataTypes.INTEGER,
-    defaultValue: 0,
-    comment: '专注时长(秒)'
+    defaultValue: 0
   },
   distraction_count: {
     type: DataTypes.INTEGER,
-    defaultValue: 0,
-    comment: '分心次数'
+    defaultValue: 0
   },
   distraction_details: {
-    type: DataTypes.JSON,
-    defaultValue: null,
-    comment: '分心详情'
+    type: DataTypes.TEXT,
+    defaultValue: null
   },
   focus_rate: {
     type: DataTypes.DECIMAL(5,2),
-    defaultValue: 0.00,
-    comment: '专注率(%)'
-  },
-  created_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
-  },
-  updated_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
+    defaultValue: 0.00
   }
 }, {
   tableName: 'study_sessions',
-  timestamps: false
+  timestamps: false,
+  createdAt: false,
+  updatedAt: false,
+  underscored: false,
+  freezeTableName: true
 });
 
-// 建立用户-会话关联
 User.hasMany(StudySession, { foreignKey: 'user_id', onDelete: 'CASCADE' });
 StudySession.belongsTo(User, { foreignKey: 'user_id' });
 

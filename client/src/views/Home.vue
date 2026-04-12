@@ -2,12 +2,20 @@
   <div class="home">
     <div class="header">
       <h2>AI专注自习室</h2>
-      <el-button type="info" @click="logout">退出登录</el-button>
+      <div class="header-actions">
+        <el-button @click="$router.push('/history')">历史记录</el-button>
+        <el-button type="info" @click="logout">退出登录</el-button>
+      </div>
     </div>
 
     <div class="layout">
-      <div class="camera">
-        <canvas ref="canvasRef" width="640" height="480"></canvas>
+      <!-- 摄像头容器：固定宽高+黑色背景，避免空白 -->
+      <div class="camera-container">
+        <canvas ref="canvasRef" width="640" height="480" class="camera-canvas"></canvas>
+        <!-- 权限提示遮罩 -->
+        <div v-if="cameraError" class="camera-tip">
+          <p>⚠️ 请允许摄像头权限，并检查设备</p>
+        </div>
       </div>
 
       <div class="panel">
@@ -16,7 +24,6 @@
           <p :class="status === '分心' ? 'distract' : 'focus'">
             {{ status }}
           </p>
-          <!-- 分心原因 👇 -->
           <p class="reason" v-if="status === '分心'">原因：{{ reason }}</p>
         </div>
 
@@ -37,7 +44,7 @@
 
         <el-button 
           type="primary" size="large" @click="startStudy"
-          :disabled="isStudying"
+          :disabled="isStudying || cameraError"
         >
           开始专注
         </el-button>
@@ -53,23 +60,27 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { startSession, endSession, detectDistraction } from '../api'
+import axios from 'axios'
+import { loadFaceDetector, analyzeFocus, closeFaceDetector } from '../utils/faceFocus'
 
 const router = useRouter()
 const canvasRef = ref(null)
 const status = ref('准备中')
-const reason = ref('') // 分心原因
+const reason = ref('')
 const distractCount = ref(0)
 const mirror = ref(false)
 const isStudying = ref(false)
 const timer = ref(0)
+const currentSessionId = ref(null)
+const cameraError = ref(false) // 摄像头错误状态
 let video = null
 let animationId = null
 let timerInterval = null
 let detectInterval = null
+let prevDistracted = false
 
 // 格式化时间
 const formatTime = (seconds) => {
@@ -79,106 +90,209 @@ const formatTime = (seconds) => {
   return `${h}:${m}:${s}`
 }
 
-// 渲染摄像头
+// 渲染摄像头画面（修复空指针+渲染逻辑）
 const renderCamera = () => {
-  const canvas = canvasRef.value
-  const ctx = canvas.getContext('2d')
+  if (!canvasRef.value || !video) return;
+  const canvas = canvasRef.value;
+  const ctx = canvas.getContext('2d');
+  
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
   
   if (mirror.value) {
-    ctx.translate(canvas.width, 0)
-    ctx.scale(-1, 1)
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+    ctx.restore();
+  } else {
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   }
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-  ctx.setTransform(1, 0, 0, 1, 0, 0)
   
-  animationId = requestAnimationFrame(renderCamera)
+  animationId = requestAnimationFrame(renderCamera);
 }
 
-// 打开摄像头
-onMounted(async () => {
+// 打开摄像头（修复权限超时+错误处理）
+const startCamera = async () => {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-    video = document.createElement('video')
-    video.srcObject = stream
-    video.play()
-    renderCamera()
-    status.value = '已就绪'
+    cameraError.value = false;
+    await nextTick();
+    
+    if (!canvasRef.value) {
+      throw new Error('摄像头容器未渲染');
+    }
+
+    // 申请摄像头权限，增加超时处理
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        facingMode: 'user'
+      } 
+    });
+    
+    video = document.createElement('video');
+    video.srcObject = stream;
+    video.setAttribute('playsinline', 'true'); // 适配移动端/浏览器
+    video.play();
+    
+    video.onloadedmetadata = () => {
+      status.value = '已就绪';
+      renderCamera();
+    };
+
+    // 视频播放错误处理
+    video.onerror = (err) => {
+      console.error('视频播放错误:', err);
+      cameraError.value = true;
+      ElMessage.error('摄像头播放失败，请检查设备');
+    };
+
   } catch (err) {
-    ElMessage.error('请允许摄像头权限')
+    console.error('摄像头启动失败:', err);
+    cameraError.value = true;
+    status.value = '摄像头异常';
+    ElMessage.error('请允许摄像头权限，并检查设备');
   }
-})
+}
+
+// 页面挂载时启动摄像头，并预加载人脸模型（减少点击「开始专注」后等待）
+onMounted(() => {
+  startCamera();
+  loadFaceDetector().catch(() => {});
+});
 
 // 开始专注
 const startStudy = async () => {
-  await startSession()
-  isStudying.value = true
-  status.value = '专注中'
-  reason.value = ''
-  ElMessage.success('已开始专注')
+  if (cameraError.value) {
+    ElMessage.error('摄像头异常，无法开始专注');
+    return;
+  }
 
-  // 计时
-  timerInterval = setInterval(() => {
-    timer.value++
-  }, 1000)
-
-  // 每2秒检测分心
-  detectInterval = setInterval(async () => {
-    const canvas = canvasRef.value
-    const frame = canvas.toDataURL('image/jpeg', 0.8)
+  try {
     try {
-      const res = await detectDistraction({ frame })
-      const { isDistracted, reason: msg } = res.data
-
-      if (isDistracted) {
-        status.value = '分心'
-        reason.value = msg
-        distractCount.value++
-        
-        // 更明显的弹窗 👇
-        ElMessage({
-          type: 'error',
-          message: `⚠️ 分心提醒：${msg}`,
-          duration: 2000,
-          offset: 50,
-          customClass: 'big-warning'
-        })
-      } else {
-        status.value = '专注中'
-        reason.value = ''
-      }
-    } catch (err) {
-      console.error('检测失败', err)
+      await loadFaceDetector();
+    } catch (e) {
+      console.error(e);
+      ElMessage.error(
+        '人脸检测模型加载失败：请保持联网（需从 jsDelivr / Google 拉取模型），或稍后重试'
+      );
+      return;
     }
-  }, 2000)
+
+    const res = await axios.post('/api/session/start');
+    currentSessionId.value = res.data.sessionId;
+    isStudying.value = true;
+    status.value = '专注中';
+    reason.value = '';
+    distractCount.value = 0;
+    prevDistracted = false;
+    ElMessage.success('已开始专注');
+
+    // 启动计时器
+    timerInterval = setInterval(() => {
+      timer.value++;
+    }, 1000);
+
+    // 浏览器端人脸检测（每 2 秒分析当前画布）
+    detectInterval = setInterval(async () => {
+      const canvas = canvasRef.value;
+      if (!canvas) return;
+      try {
+        const detector = await loadFaceDetector();
+        const { isDistracted, reason: msg } = analyzeFocus(canvas, detector);
+
+        if (isDistracted) {
+          status.value = '分心';
+          reason.value = msg;
+          if (!prevDistracted) {
+            distractCount.value++;
+            ElMessage({
+              type: 'error',
+              message: `⚠️ 分心提醒：${msg}`,
+              duration: 2500,
+              offset: 50
+            });
+          }
+          prevDistracted = true;
+        } else {
+          status.value = '专注中';
+          reason.value = '';
+          prevDistracted = false;
+        }
+      } catch (err) {
+        console.error('检测失败:', err);
+      }
+    }, 2000);
+  } catch (err) {
+    console.error('开始失败:', err);
+    const isNetwork =
+      err.code === 'ERR_NETWORK' ||
+      err.message === 'Network Error' ||
+      !err.response;
+    if (isNetwork) {
+      ElMessage.error(
+        '无法连接服务端：请先在 server 目录执行 npm start，并确认 MySQL 已启动（库名 ai_study_monitor）'
+      );
+    } else if (err.response?.status === 401) {
+      ElMessage.error(err.response?.data?.msg || '登录已过期，请重新登录');
+    } else {
+      const d = err.response?.data;
+      ElMessage.error(
+        d?.msg || d?.error || '开始失败，请检查后端与数据库'
+      );
+    }
+  }
 }
 
 // 结束专注
 const endStudy = async () => {
-  await endSession()
-  isStudying.value = false
-  status.value = '已结束'
-  ElMessage.info(`专注结束！时长：${formatTime(timer.value)}，分心：${distractCount.value}`)
+  try {
+    await axios.post('/api/session/end', {
+      sessionId: currentSessionId.value,
+      distractionCount: distractCount.value
+    });
 
-  clearInterval(timerInterval)
-  clearInterval(detectInterval)
-  timer.value = 0
-  reason.value = ''
+    isStudying.value = false;
+    status.value = '已就绪';
+    ElMessage.info(`专注结束！时长：${formatTime(timer.value)}，分心：${distractCount.value}`);
+
+    // 清除定时器
+    clearInterval(timerInterval);
+    clearInterval(detectInterval);
+    timer.value = 0;
+    reason.value = '';
+    currentSessionId.value = null;
+  } catch (err) {
+    ElMessage.error('结束失败');
+    console.error(err);
+  }
 }
 
 // 退出登录
 const logout = () => {
-  clearInterval(timerInterval)
-  clearInterval(detectInterval)
-  ElMessage.success('退出登录成功')
-  router.push('/login')
+  // 清除所有资源
+  clearInterval(timerInterval);
+  clearInterval(detectInterval);
+  if (animationId) cancelAnimationFrame(animationId);
+  if (video && video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
+  }
+  
+  localStorage.removeItem('token');
+  closeFaceDetector();
+  ElMessage.success('退出登录成功');
+  router.push('/login');
 }
 
+// 页面卸载时清理资源
 onUnmounted(() => {
-  if (animationId) cancelAnimationFrame(animationId)
-  if (video?.srcObject) video.srcObject.getTracks().forEach(t => t.stop())
-  clearInterval(timerInterval)
-  clearInterval(detectInterval)
-})
+  clearInterval(timerInterval);
+  clearInterval(detectInterval);
+  if (animationId) cancelAnimationFrame(animationId);
+  if (video && video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
+  }
+  closeFaceDetector();
+});
 </script>
 
 <style scoped>
@@ -189,17 +303,44 @@ onUnmounted(() => {
   align-items: center;
   margin-bottom: 20px;
 }
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
 .layout {
   display: flex;
   gap: 30px;
   margin-top: 20px;
+  align-items: flex-start;
 }
-.camera {
+/* 摄像头容器样式：固定宽高+黑色背景 */
+.camera-container {
+  width: 640px;
+  height: 480px;
   border: 2px solid #eee;
   border-radius: 8px;
   overflow: hidden;
-  width: 640px;
-  height: 480px;
+  background: #000;
+  position: relative;
+}
+.camera-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* 摄像头提示遮罩 */
+.camera-tip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 16px;
+  text-align: center;
+  background: rgba(0,0,0,0.7);
+  padding: 10px 20px;
+  border-radius: 8px;
 }
 .panel {
   width: 300px;
@@ -224,7 +365,7 @@ onUnmounted(() => {
   font-size: 20px;
 }
 .reason {
-  color: #f54444;
+  color: #f5444b;
   font-weight: 500;
   margin-top: 6px;
 }
@@ -232,13 +373,5 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-</style>
-
-<!-- 让弹窗更大更明显 -->
-<style>
-.big-warning {
-  font-size: 16px !important;
-  padding: 15px 20px !important;
 }
 </style>

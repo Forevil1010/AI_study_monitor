@@ -5,28 +5,24 @@ const User = sequelize.define('User', {
   id: {
     type: DataTypes.INTEGER.UNSIGNED,
     primaryKey: true,
-    autoIncrement: true,
-    comment: '用户ID'
+    autoIncrement: true
   },
   username: {
     type: DataTypes.STRING(50),
     allowNull: false,
-    unique: true,
-    comment: '用户名'
+    unique: true
   },
   password: {
     type: DataTypes.STRING(255),
-    allowNull: false,
-    comment: '加密密码'
-  },
-  created_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-    comment: '注册时间'
+    allowNull: false
   }
 }, {
   tableName: 'users',
-  timestamps: false
+  timestamps: false,
+  createdAt: false,
+  updatedAt: false,
+  underscored: false,
+  freezeTableName: true
 });
 
 module.exports = User;

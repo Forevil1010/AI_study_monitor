@@ -44,17 +44,26 @@ const handleLogin = async () => {
   }
 
   try {
+    // 【关键】axios 会把后端数据包在 res.data 里！
     const res = await login(form.value)
+    console.log('登录接口完整返回：', res) // 打印验证
     
-    // 登录成功才存token + 跳转
-    localStorage.setItem('token', res.token)
+    // 【修复】从 res.data 里取 token！
+    const token = res.data.token
+    if (!token) {
+      ElMessage.error('登录失败，未获取到token')
+      return
+    }
+
+    // 保存有效 token
+    localStorage.setItem('token', token)
+    console.log('登录成功，token已保存：', token)
+
     ElMessage.success('登录成功')
     router.push('/home')
-    
-  } catch (e) {
-    // 登录失败：只提示错误，不跳转！
-    ElMessage.error(e.response?.data?.msg || '登录失败')
-    // 这里绝对不要写 router.push！
+  } catch (err) {
+    ElMessage.error(err.response?.data?.msg || '登录失败，请检查账号密码')
+    console.error('登录失败详情：', err)
   }
 }
 </script>

@@ -5,6 +5,7 @@ const sequelize = new Sequelize('ai_study_monitor', 'root', '', {
   host: '127.0.0.1',
   dialect: 'mysql',
   logging: false // 关闭SQL日志，控制台更干净
+  
 });
 
 // 测试连接
