@@ -64,7 +64,6 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
-import { loadFaceDetector, analyzeFocus, closeFaceDetector } from '../utils/faceFocus'
 
 const router = useRouter()
 const canvasRef = ref(null)
@@ -154,10 +153,11 @@ const startCamera = async () => {
   }
 }
 
-// 页面挂载时启动摄像头，并预加载人脸模型（减少点击「开始专注」后等待）
+const DISTRACT_LABELS = new Set(['刷手机', '东张西望', '低头/睡觉', '交谈'])
+
+// 页面挂载时启动摄像头
 onMounted(() => {
   startCamera();
-  loadFaceDetector().catch(() => {});
 });
 
 // 开始专注
@@ -168,16 +168,6 @@ const startStudy = async () => {
   }
 
   try {
-    try {
-      await loadFaceDetector();
-    } catch (e) {
-      console.error(e);
-      ElMessage.error(
-        '人脸检测模型加载失败：请保持联网（需从 jsDelivr / Google 拉取模型），或稍后重试'
-      );
-      return;
-    }
-
     const res = await axios.post('/api/session/start');
     currentSessionId.value = res.data.sessionId;
     isStudying.value = true;
@@ -192,13 +182,17 @@ const startStudy = async () => {
       timer.value++;
     }, 1000);
 
-    // 浏览器端人脸检测（每 2 秒分析当前画布）
+    // 后端 Python mediapipe 检测（每 2 秒上传当前画布）
     detectInterval = setInterval(async () => {
       const canvas = canvasRef.value;
       if (!canvas) return;
       try {
-        const detector = await loadFaceDetector();
-        const { isDistracted, reason: msg } = analyzeFocus(canvas, detector);
+        const image = canvas.toDataURL('image/jpeg', 0.8)
+        const detectRes = await axios.post('/api/detect', { image })
+        const result = detectRes.data || {}
+        const label = result.label || ''
+        const msg = result.reason || label || '检测到分心'
+        const isDistracted = result.isDistracted ?? DISTRACT_LABELS.has(label)
 
         if (isDistracted) {
           status.value = '分心';
@@ -278,7 +272,6 @@ const logout = () => {
   }
   
   localStorage.removeItem('token');
-  closeFaceDetector();
   ElMessage.success('退出登录成功');
   router.push('/login');
 }
@@ -291,7 +284,6 @@ onUnmounted(() => {
   if (video && video.srcObject) {
     video.srcObject.getTracks().forEach(track => track.stop());
   }
-  closeFaceDetector();
 });
 </script>
 

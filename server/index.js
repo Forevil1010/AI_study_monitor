@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = 3000;
 const JWT_SECRET = 'secret123'; // 必须和前端一致
+const PY_DETECT_URL = process.env.PY_DETECT_URL || 'http://127.0.0.1:5001/detect';
 
 // 中间件
 app.use(cors());
@@ -190,9 +191,42 @@ app.post('/api/session/start', authenticateToken, async (req, res) => {
   }
 });
 
-// ================= 分心检测（占位：未接模型时返回未分心，避免前端轮询报错）=================
-app.post('/api/detect', authenticateToken, (req, res) => {
-  res.json({ isDistracted: false, reason: '' });
+// ================= 分心检测（转发到 Python mediapipe 服务）=================
+app.post('/api/detect', authenticateToken, async (req, res) => {
+  try {
+    const { image } = req.body || {};
+    if (!image || typeof image !== 'string') {
+      return res.status(400).json({ msg: '缺少 image 字段' });
+    }
+
+    const pyRes = await fetch(PY_DETECT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image })
+    });
+
+    if (!pyRes.ok) {
+      const text = await pyRes.text();
+      return res.status(502).json({ msg: 'Python 检测服务异常', error: text });
+    }
+
+    const pyData = await pyRes.json();
+    const label = pyData?.label || '';
+    const isDistracted = label && label !== '专注学习';
+    const reason = isDistracted ? label : '';
+
+    res.json({
+      isDistracted,
+      reason,
+      label,
+      class: pyData?.class,
+      confidence: pyData?.confidence,
+      baidu: pyData?.baidu
+    });
+  } catch (err) {
+    console.error('分心检测转发错误:', err.message);
+    res.status(500).json({ msg: '分心检测失败', error: err.message });
+  }
 });
 
 // ================= 结束会话接口 =================
