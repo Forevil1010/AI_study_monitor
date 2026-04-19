@@ -1,25 +1,43 @@
 <template>
   <div class="login-page">
+    <div class="login-bg" aria-hidden="true" />
     <div class="login-box">
-      <h2>登录</h2>
+      <div class="brand">
+        <span class="brand-icon">◎</span>
+        <div>
+          <h1>AI 专注自习室</h1>
+          <p class="subtitle">登录后开始你的专注时段</p>
+        </div>
+      </div>
 
-      <!-- 必须用原生 form 标签！！ -->
       <form @submit.prevent="handleLogin">
         <el-input
           v-model="form.username"
           placeholder="用户名"
+          size="large"
+          clearable
           class="input-item"
         />
         <el-input
           v-model="form.password"
           placeholder="密码"
           type="password"
+          size="large"
+          show-password
           class="input-item"
         />
 
-        <button type="submit" class="submit-btn">登录</button>
+        <el-button
+          type="primary"
+          native-type="submit"
+          size="large"
+          class="submit-btn"
+          :loading="submitting"
+        >
+          登录
+        </el-button>
 
-        <p class="link" @click="$router.push('/register')">去注册</p>
+        <p class="link" @click="$router.push('/register')">还没有账号？去注册</p>
       </form>
     </div>
   </div>
@@ -30,8 +48,10 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login } from '../api'
+import { setToken } from '../utils/authStorage'
 
 const router = useRouter()
+const submitting = ref(false)
 const form = ref({
   username: '',
   password: ''
@@ -43,67 +63,98 @@ const handleLogin = async () => {
     return
   }
 
+  submitting.value = true
   try {
-    // 【关键】axios 会把后端数据包在 res.data 里！
     const res = await login(form.value)
-    console.log('登录接口完整返回：', res) // 打印验证
-    
-    // 【修复】从 res.data 里取 token！
     const token = res.data.token
     if (!token) {
-      ElMessage.error('登录失败，未获取到token')
+      ElMessage.error('登录失败，未获取到 token')
       return
     }
 
-    // 保存有效 token
-    localStorage.setItem('token', token)
-    console.log('登录成功，token已保存：', token)
-
+    setToken(token)
     ElMessage.success('登录成功')
     router.push('/home')
   } catch (err) {
     ElMessage.error(err.response?.data?.msg || '登录失败，请检查账号密码')
-    console.error('登录失败详情：', err)
+  } finally {
+    submitting.value = false
   }
 }
 </script>
 
 <style scoped>
 .login-page {
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #f5f5f5;
+  padding: 24px;
+  position: relative;
+  overflow: hidden;
+  background: var(--app-bg, #0f1419);
+}
+.login-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.35), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(56, 189, 248, 0.12), transparent),
+    radial-gradient(ellipse 50% 30% at 0% 80%, rgba(167, 139, 250, 0.15), transparent);
+  pointer-events: none;
 }
 .login-box {
-  width: 400px;
-  padding: 30px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  padding: 36px 32px 32px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  box-shadow:
+    0 4px 24px rgba(15, 23, 42, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset;
 }
-.login-box h2 {
-  text-align: center;
-  margin-bottom: 20px;
+.brand {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 28px;
+}
+.brand-icon {
+  font-size: 28px;
+  line-height: 1;
+  color: #6366f1;
+}
+.brand h1 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
+}
+.subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
 }
 .input-item {
   width: 100%;
-  margin-bottom: 15px;
+  margin-bottom: 16px;
 }
 .submit-btn {
   width: 100%;
-  height: 40px;
-  background: #409eff;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  margin-bottom: 10px;
+  margin-top: 4px;
+  margin-bottom: 16px;
+  font-weight: 600;
 }
 .link {
   text-align: center;
-  color: #409eff;
+  color: #6366f1;
   cursor: pointer;
+  font-size: 0.9rem;
+}
+.link:hover {
+  text-decoration: underline;
 }
 </style>

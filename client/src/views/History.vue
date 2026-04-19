@@ -1,22 +1,34 @@
 <template>
   <div class="history-page">
-    <div class="toolbar">
-      <el-button @click="$router.push('/home')">返回自习</el-button>
-      <h2>我的专注历史</h2>
-    </div>
+    <header class="toolbar">
+      <div class="toolbar-left">
+        <el-button round @click="$router.push('/home')">
+          ← 返回自习
+        </el-button>
+        <div>
+          <h1>专注历史</h1>
+          <p class="toolbar-hint">已结束的自习会话会显示在下方</p>
+        </div>
+      </div>
+    </header>
 
     <el-skeleton v-if="loading" :rows="6" animated />
-    <el-alert v-else-if="errorMsg" type="error" :title="errorMsg" show-icon :closable="false" />
-    <el-empty v-else-if="list.length === 0" description="暂无已结束的专注记录（结束一次专注后会出现在这里）" />
+    <el-alert v-else-if="errorMsg" type="error" :title="errorMsg" show-icon :closable="false" class="alert-block" />
+    <el-empty v-else-if="list.length === 0" description="暂无记录，结束一次专注后会出现在这里" />
     <div v-else class="list">
-      <div v-for="item in list" :key="item.id" class="item">
-        <p><strong>会话</strong> #{{ item.id }} · {{ item.session_name || '自习会话' }}</p>
-        <p>开始：{{ formatDateTime(item.start_time) }}</p>
-        <p>结束：{{ formatDateTime(item.end_time) }}</p>
-        <p>时长：{{ formatDuration(item.duration) }}</p>
-        <p>专注率：{{ formatRate(item.focus_rate) }}</p>
-        <p>分心次数：{{ item.distraction_count ?? 0 }}</p>
-      </div>
+      <article v-for="item in list" :key="item.id" class="item">
+        <div class="item-head">
+          <span class="badge">#{{ item.id }}</span>
+          <span class="session-name">{{ item.session_name || '自习会话' }}</span>
+        </div>
+        <dl class="meta">
+          <div><dt>开始</dt><dd>{{ formatDateTime(item.start_time) }}</dd></div>
+          <div><dt>结束</dt><dd>{{ formatDateTime(item.end_time) }}</dd></div>
+          <div><dt>时长</dt><dd>{{ formatDuration(item.duration) }}</dd></div>
+          <div><dt>专注率</dt><dd>{{ formatRate(item.focus_rate) }}</dd></div>
+          <div><dt>分心次数</dt><dd>{{ item.distraction_count ?? 0 }}</dd></div>
+        </dl>
+      </article>
     </div>
   </div>
 </template>
@@ -67,35 +79,88 @@ onMounted(async () => {
 
 <style scoped>
 .history-page {
-  padding: 20px;
-  max-width: 720px;
+  min-height: 100vh;
+  padding: 24px 28px 40px;
+  max-width: 760px;
   margin: 0 auto;
+  background: linear-gradient(165deg, #f8fafc 0%, #eef2ff 50%, #f1f5f9 100%);
 }
 .toolbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
   margin-bottom: 24px;
-  flex-wrap: wrap;
 }
-.toolbar h2 {
+.toolbar-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 18px 20px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+.toolbar h1 {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+.toolbar-hint {
   margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+.alert-block {
+  border-radius: 12px;
 }
 .list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 .item {
-  border: 1px solid #ebeef5;
-  padding: 16px;
-  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  padding: 18px 20px;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
-.item p {
-  margin: 6px 0;
-  font-size: 14px;
-  color: #303133;
+.item-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #6366f1;
+  background: #eef2ff;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.session-name {
+  font-weight: 600;
+  color: #0f172a;
+}
+.meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+.meta dt {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 600;
+  margin: 0 0 2px;
+}
+.meta dd {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #334155;
 }
 </style>

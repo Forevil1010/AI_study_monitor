@@ -1,12 +1,18 @@
 <template>
   <div class="home">
-    <div class="header">
-      <h2>AI专注自习室</h2>
+    <header class="header">
+      <div class="header-brand">
+        <span class="logo-dot" aria-hidden="true" />
+        <div>
+          <h1>AI 专注自习室</h1>
+          <p class="header-desc">摄像头分析专注状态，记录你的自习过程</p>
+        </div>
+      </div>
       <div class="header-actions">
         <el-button @click="$router.push('/history')">历史记录</el-button>
-        <el-button type="info" @click="logout">退出登录</el-button>
+        <el-button type="info" plain @click="logout">退出登录</el-button>
       </div>
-    </div>
+    </header>
 
     <div class="layout">
       <!-- 摄像头容器：固定宽高+黑色背景，避免空白 -->
@@ -64,6 +70,7 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import { removeToken } from '../utils/authStorage'
 
 const router = useRouter()
 const canvasRef = ref(null)
@@ -271,8 +278,8 @@ const logout = () => {
     video.srcObject.getTracks().forEach(track => track.stop());
   }
   
-  localStorage.removeItem('token');
-  ElMessage.success('退出登录成功');
+  removeToken()
+  ElMessage.success('已退出登录')
   router.push('/login');
 }
 
@@ -288,33 +295,75 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.home { padding: 20px; }
+.home {
+  min-height: 100vh;
+  padding: 24px 28px 32px;
+  background: linear-gradient(165deg, #f8fafc 0%, #eef2ff 45%, #f1f5f9 100%);
+}
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  padding: 20px 22px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+}
+.header-brand {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.logo-dot {
+  width: 12px;
+  height: 12px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  flex-shrink: 0;
+}
+.header h1 {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+.header-desc {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  max-width: 360px;
+  line-height: 1.45;
 }
 .header-actions {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-shrink: 0;
 }
 .layout {
   display: flex;
-  gap: 30px;
-  margin-top: 20px;
+  gap: 28px;
+  margin-top: 4px;
   align-items: flex-start;
+  flex-wrap: wrap;
 }
 /* 摄像头容器样式：固定宽高+黑色背景 */
 .camera-container {
   width: 640px;
+  max-width: 100%;
   height: 480px;
-  border: 2px solid #eee;
-  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
   overflow: hidden;
   background: #000;
   position: relative;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
 }
 .camera-canvas {
   display: block;
@@ -336,15 +385,25 @@ onUnmounted(() => {
 }
 .panel {
   width: 300px;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 .item {
-  padding: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.05);
+  padding: 18px 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.item h3 {
+  margin: 0 0 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: none;
+  letter-spacing: 0.02em;
 }
 .focus {
   color: green;

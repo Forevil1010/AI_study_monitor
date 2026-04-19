@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getToken } from '../utils/authStorage'
 
 const apiBase =
   import.meta.env.DEV
@@ -10,9 +11,9 @@ const request = axios.create({
   timeout: 5000
 })
 
-// 自动加 token 拦截器
+// 自动加 token 拦截器（与 sessionStorage 一致）
 request.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
+  const token = getToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }

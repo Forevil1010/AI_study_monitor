@@ -3,6 +3,7 @@ import Login from '../views/Login.vue'
 import Home from '../views/Home.vue'
 import Register from '../views/Register.vue'
 import History from '../views/History.vue'
+import { getToken } from '../utils/authStorage'
 
 const routes = [
   { path: '/', redirect: '/login' },
@@ -18,12 +19,9 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  const token = localStorage.getItem('token')
+  const token = getToken()
   if ((to.path === '/home' || to.path === '/history') && !token) {
     return '/login'
-  }
-  if (token && to.path === '/login') {
-    return '/home'
   }
   return true
 })
